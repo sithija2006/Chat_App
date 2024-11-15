@@ -14,24 +14,30 @@
 <body class="bg-gray-100 font-sans text-gray-900 p-6">
 
     <div class="max-w-2xl mx-auto bg-white p-6 rounded-lg shadow-md">
-        <h2 class="text-2xl font-semibold mb-4 text-center">Welcome to the Chat</h2>
+        <h2 id="welcomeMessage" class="italic text-2xl font-semibold mb-4 text-center">Welcome to the Chat <br></h2>
+
 
         <!-- Messages Section -->
         <div class="messages overflow-y-auto h-72 mb-4 p-4 bg-gray-50 rounded-lg shadow-inner" id="messages"></div>
 
         <!-- Message Input -->
+        <hr>
         <div class="flex space-x-2 mb-4">
-            <input type="text" id="messageInput" placeholder="Type a message" class="w-full p-3 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500" required>
-            <button id="sendMessageBtn" class="w-20 p-3 bg-blue-500 text-white rounded-lg hover:bg-blue-600">Send</button>
+            <input type="text" id="messageInput" placeholder="Type a message"
+                class="w-full p-3 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
+                required>
+            <button id="sendMessageBtn"
+                class="w-20 p-3 bg-blue-500 text-white rounded-lg hover:bg-blue-600">Send</button>
         </div>
-
+        <hr>
         <!-- Users List Section -->
-        <h3 class="text-xl font-semibold mb-2">Users</h3>
+
         <ul class="user-list space-y-2" id="userList"></ul>
 
         <!-- Buttons Section -->
         <div class="mt-6 flex space-x-4 justify-center">
-            <button id="clearChatBtn" class="px-6 py-2 bg-red-500 text-white rounded-lg hover:bg-gray-600">Clear Chat</button>
+            <button id="clearChatBtn" class="px-6 py-2 bg-red-500 text-white rounded-lg hover:bg-gray-600">Clear
+                Chat</button>
             <button id="logoutBtn" class="px-6 py-2 bg-gray-500 text-white rounded-lg hover:bg-red-600">Logout</button>
         </div>
     </div>
@@ -67,6 +73,20 @@
             }
         });
 
+        // Update the welcome message with the user's email prefix
+        auth.onAuthStateChanged(user => {
+            if (!user) {
+                window.location.href = "index.html"; // Redirect to login if not logged in
+            } else {
+                const emailPrefix = user.email.split('@')[0]; // Extract the part before '@'
+                const welcomeMessage = document.querySelector("#welcomeMessage");
+                welcomeMessage.textContent = `Welcome to the Chat 
+                ${emailPrefix}`;
+                loadUsers(); // Load users if necessary
+            }
+        });
+
+
         // Load users (optional: you can fetch specific users if needed)
         function loadUsers() {
             firestore.collection("users").get().then(snapshot => {
@@ -80,20 +100,40 @@
             });
         }
 
-        // Load messages with sender info
+        // Load messages with alignment based on sender
         firestore.collection("messages")
             .orderBy("timestamp")
             .onSnapshot(snapshot => {
                 messagesDiv.innerHTML = "";
+                const currentUser = auth.currentUser;
+
                 snapshot.forEach(doc => {
                     const message = doc.data();
+                    const isSender = message.senderId === currentUser.uid;
+
+                    // Create a container div for each message
                     const messageDiv = document.createElement("div");
-                    messageDiv.classList.add("p-3", "mb-2", "bg-gray-200", "rounded-lg");
+
+                    // Apply conditional styling based on whether the user is the sender
+                    messageDiv.classList.add("p-3", "mb-2", "rounded-lg", "max-w-xs");
+                    if (isSender) {
+                        messageDiv.classList.add("ml-auto", "bg-blue-500", "text-white", "italic", "text-right");
+                    } else {
+                        messageDiv.classList.add("mr-auto", "bg-gray-200", "text-black", "italic", "text-left");
+                    }
+
+                    // Set message content
                     messageDiv.innerHTML = `
-                        <span class="font-semibold text-blue-700">${message.senderName || message.senderId}</span>: ${message.text}
-                    `;
+                <span class="font-semibold">${message.senderName || "Unknown"}</span><br>
+                ${message.text}
+            `;
+
+                    // Append the message to the messages container
                     messagesDiv.appendChild(messageDiv);
                 });
+
+                // Scroll to the bottom of the messages container
+                messagesDiv.scrollTop = messagesDiv.scrollHeight;
             });
 
         // Send message function with senderName
