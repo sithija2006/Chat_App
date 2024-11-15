@@ -1,0 +1,148 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Chat Application</title>
+    <script src="https://www.gstatic.com/firebasejs/8.9.1/firebase-app.js"></script>
+    <script src="https://www.gstatic.com/firebasejs/8.9.1/firebase-auth.js"></script>
+    <script src="https://www.gstatic.com/firebasejs/8.9.1/firebase-firestore.js"></script>
+    <link href="https://unpkg.com/tailwindcss@^1.0/dist/tailwind.min.css" rel="stylesheet">
+</head>
+
+<body class="bg-gray-100 font-sans text-gray-900 p-6">
+
+    <div class="max-w-2xl mx-auto bg-white p-6 rounded-lg shadow-md">
+        <h2 class="text-2xl font-semibold mb-4 text-center">Welcome to the Chat</h2>
+
+        <!-- Messages Section -->
+        <div class="messages overflow-y-auto h-72 mb-4 p-4 bg-gray-50 rounded-lg shadow-inner" id="messages"></div>
+
+        <!-- Message Input -->
+        <div class="flex space-x-2 mb-4">
+            <input type="text" id="messageInput" placeholder="Type a message" class="w-full p-3 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500" required>
+            <button id="sendMessageBtn" class="w-20 p-3 bg-blue-500 text-white rounded-lg hover:bg-blue-600">Send</button>
+        </div>
+
+        <!-- Users List Section -->
+        <h3 class="text-xl font-semibold mb-2">Users</h3>
+        <ul class="user-list space-y-2" id="userList"></ul>
+
+        <!-- Buttons Section -->
+        <div class="mt-6 flex space-x-4 justify-center">
+            <button id="clearChatBtn" class="px-6 py-2 bg-red-500 text-white rounded-lg hover:bg-gray-600">Clear Chat</button>
+            <button id="logoutBtn" class="px-6 py-2 bg-gray-500 text-white rounded-lg hover:bg-red-600">Logout</button>
+        </div>
+    </div>
+
+    <script>
+        const firebaseConfig = {
+            apiKey: "AIzaSyBnmvVZKCqHhxE6ITRb0oJXHpM_y9JmR4c",
+            authDomain: "chataplycation.firebaseapp.com",
+            projectId: "chataplycation",
+            storageBucket: "chataplycation.firebasestorage.app",
+            messagingSenderId: "501966033894",
+            appId: "1:501966033894:web:1515e494e6ac410fb7bc27",
+            measurementId: "G-KKGK0L86R1"
+        };
+
+        firebase.initializeApp(firebaseConfig);
+        const auth = firebase.auth();
+        const firestore = firebase.firestore();
+
+        const messagesDiv = document.getElementById("messages");
+        const messageInput = document.getElementById("messageInput");
+        const sendMessageBtn = document.getElementById("sendMessageBtn");
+        const userList = document.getElementById("userList");
+        const clearChatBtn = document.getElementById("clearChatBtn");
+        const logoutBtn = document.getElementById("logoutBtn");
+
+        // Check if user is logged in
+        auth.onAuthStateChanged(user => {
+            if (!user) {
+                window.location.href = "index.html";  // Redirect to login if not logged in
+            } else {
+                loadUsers();
+            }
+        });
+
+        // Load users (optional: you can fetch specific users if needed)
+        function loadUsers() {
+            firestore.collection("users").get().then(snapshot => {
+                snapshot.forEach(doc => {
+                    const user = doc.data();
+                    const userDiv = document.createElement("li");
+                    userDiv.textContent = user.name || user.email;
+                    userDiv.classList.add("p-3", "bg-white", "border", "border-gray-300", "rounded-lg", "cursor-pointer", "hover:bg-gray-100");
+                    userList.appendChild(userDiv);
+                });
+            });
+        }
+
+        // Load messages with sender info
+        firestore.collection("messages")
+            .orderBy("timestamp")
+            .onSnapshot(snapshot => {
+                messagesDiv.innerHTML = "";
+                snapshot.forEach(doc => {
+                    const message = doc.data();
+                    const messageDiv = document.createElement("div");
+                    messageDiv.classList.add("p-3", "mb-2", "bg-gray-200", "rounded-lg");
+                    messageDiv.innerHTML = `
+                        <span class="font-semibold text-blue-700">${message.senderName || message.senderId}</span>: ${message.text}
+                    `;
+                    messagesDiv.appendChild(messageDiv);
+                });
+            });
+
+        // Send message function with senderName
+        function sendMessage() {
+            const message = messageInput.value.trim();
+            if (message) {
+                const user = auth.currentUser;
+                // Get the sender's email and extract the part before '@'
+                const senderEmail = user.email ? user.email.split('@')[0] : "Anonymous";
+
+                firestore.collection("messages").add({
+                    text: message,
+                    senderId: user.uid,
+                    senderName: senderEmail,  // Use the sender's email (before '@')
+                    timestamp: firebase.firestore.FieldValue.serverTimestamp(),
+                }).then(() => {
+                    messageInput.value = ""; // Clear the input field after sending
+                }).catch(error => {
+                    console.error("Error sending message:", error);
+                });
+            }
+        }
+
+        // Clear Chat function
+        function clearChat() {
+            firestore.collection("messages").get().then(snapshot => {
+                snapshot.forEach(doc => {
+                    firestore.collection("messages").doc(doc.id).delete();
+                });
+            }).catch(error => {
+                console.error("Error clearing chat:", error);
+            });
+        }
+
+        // Logout function
+        function logout() {
+            auth.signOut().then(() => {
+                window.location.href = "index.html";  // Redirect to login page after logout
+            }).catch(error => {
+                console.error("Error logging out:", error);
+            });
+        }
+
+        // Attach events
+        sendMessageBtn.addEventListener("click", sendMessage);
+        clearChatBtn.addEventListener("click", clearChat);
+        logoutBtn.addEventListener("click", logout);
+    </script>
+
+</body>
+
+</html>
